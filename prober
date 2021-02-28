@@ -1,0 +1,71 @@
+#!/usr/bin/python3
+
+import math
+import easysnmp 
+import sys, time 
+from easysnmp import Session,snmp_get, snmp_walk
+
+
+device_data = sys.argv[1]
+details = device_data.split(':')
+ipaddress = details[0]
+IP_port = details[1]
+community = details[2]
+smpf = float(sys.argv[2]) 
+smptime = 1/smpf
+smpls = int(sys.argv[3])
+ObjID = []
+lastestOID = []
+finalOID = []
+
+
+for i in range(4, len(sys.argv)):
+	ObjID.append(sys.argv[i])
+ObjID.insert(0, '1.3.6.1.2.1.1.3.0')
+
+def FunctionSnmp():
+	global lastestOID, time_calc
+	session=Session(hostname=ipaddress,remote_port=IP_port,community='public',version=2,timeout=1,retries=1)
+	OIDs_received = session.get(ObjID)
+	finalOID = []
+	
+
+	for j in range(1,len(OIDs_received)):
+		if OIDs_received[j].value!='NOSUCHOBJECT' and OIDs_received[j].value!='NOSUCHINSTANCE':
+			finalOID.append(int(OIDs_received[j].value))
+
+			if count!=0 and len(lastestOID)>0:
+				Oiddiff = int(finalOID[j-1]) - int(lastestOID[j-1])
+				timediff = round(past_time - time_calc,1)
+				rateObtain = int(Oiddiff/timediff)
+
+				if rateObtain < 0:
+					if OIDs_received[j].snmp_type == 'COUNTER32':
+						Oiddiff = Oiddiff + 2**32
+						print(str(past_time) + "|"+ str(Oiddiff / timediff) +"|")
+					elif OIDs_received =='COUNTER64':
+						Oiddiff = Oiddiff+2**64
+						print(str(past_time) +"|"+ str(Oiddiff/timediff)+"|")
+				else:
+					print(str(past_time)+"|"+str(rateObtain)+"|")
+
+	lastestOID = finalOID
+	time_calc = past_time
+
+if smpls == -1:
+	count = 0
+	lastestOID = []
+	while True:
+		past_time = (time.time())
+		FunctionSnmp()
+		responseTime=(time.time())
+		count = count +1
+		time.sleep(abs(smptime - responseTime + past_time))
+else:
+	lastestOID = []
+	for count in range(0, smpls+1):
+		past_time = (time.time())
+		FunctionSnmp()
+		responseTime = (time.time())
+		time.sleep(abs(smptime - responseTime+past_time))					
+	
